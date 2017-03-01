@@ -51,7 +51,7 @@ follow() {
         echo $usage && exit
     else
         echo "${this_nick},${feed_src}" >> $follower_list
-        curl ${feed_src} -z $CONF_DIR/subscriptions/${this_nick} -o $CONF_DIR/subscriptions/${this_nick} -s -L > /dev/null
+        curl -s -L ${feed_src} -z $CONF_DIR/subscriptions/${this_nick} -o $CONF_DIR/subscriptions/${this_nick} > /dev/null
         echo "$this_nick added to following."
     fi
 }
@@ -105,7 +105,7 @@ tweet() {
         echo "Tweet posted."
         if [ -e $CONF_DIR/posthook ]; then
             source $CONF_DIR/posthook
-            posthook
+            $(posthook)
         fi
     fi
 }
@@ -121,6 +121,7 @@ unfollow() {
         if [ $follower_count -gt 0 ]; then
             new_list=$( sed "/$this_nick/d" $follower_list )
             echo "$new_list" > $follower_list
+            rm $CONF_DIR/subscriptions/${this_nick}
             echo "$this_nick removed from following."
         else
             echo "You aren't following anyone."
