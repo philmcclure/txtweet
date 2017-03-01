@@ -35,9 +35,7 @@ In any event, here's an example of a `posthook` that will `scp` your `twtxt.txt`
         # Anything you need to happen after you tweet needs to go
         # into this function. This is just a placeholder."
 
-        echo "Uploading twtxt.txt to the server..."
         scp $twtxtfile user@webserver:/var/www/
-        echo "Upload finished!"
     }
 
 [1]: https://twtxt.readthedocs.io/en/latest/
