@@ -1,0 +1,165 @@
+#!/bin/bash
+
+if [ ! -e $HOME/.config/txtweet ]; then
+    mkdir -p $HOME/.config/txtweet
+    pushd $HOME/.config/txtweet > /dev/null
+    mkdir subscriptions
+    touch following twtxt.txt
+    
+config=$(cat <<'EOF'
+CONF_DIR="$HOME/.config/txtweet"
+nick="txtweet user"
+twtxtfile="$CONF_DIR/twtxt.txt"
+follower_list="$CONF_DIR/following"
+character_limit="140"
+timeline_count="20"
+EOF
+) 
+
+post_hook=$(cat <<'EOH'
+posthook() {
+    # Anything you need to happen after you tweet needs to go
+    # into this function. This is just a placeholder."
+    echo 
+}
+EOH
+)
+    echo "$config" > $HOME/.config/txtweet/config
+    echo "$post_hook" > $HOME/.config/txtweet/posthook
+    popd > /dev/null
+fi
+
+source $HOME/.config/txtweet/config
+
+PROGNAME=$(basename $0)
+VERSION="0.1"
+usage=$(cat <<EOG
+$PROGNAME $VERSION
+================================================================
+$PROGNAME -u NICK -f FEED_SRC //follow a new user
+$PROGNAME -l                  //list everyone you're following
+$PROGNAME -t "TWEET BODY"     //post a new tweet
+$PROGNAME -r NICK             //unfollow a user
+$PROGNAME -v NICK             //show feed of user you're following
+EOG
+)
+
+follow() {
+    this_nick="$1"
+    feed_src="$2"
+    if [ -z $this_nick ] || [ -z $feed_src ]; then
+        echo $usage && exit
+    else
+        echo "${this_nick},${feed_src}" >> $follower_list
+        curl ${feed_src} -z $CONF_DIR/subscriptions/${this_nick} -o $CONF_DIR/subscriptions/${this_nick} -s -L > /dev/null
+        echo "$this_nick added to following."
+    fi
+}
+
+following() {
+    follower_count=$(wc -l $follower_list | awk '{ print $1 }')
+
+    if [ $follower_count -gt 0 ]; then
+        echo -e "You are following:\n"
+        sed 's/\,/\t/' $follower_list
+    else
+        echo "You aren't following anyone."
+    fi
+    exit
+}
+
+timeline() {
+    follower_count=$(wc -l $follower_list | awk '{ print $1 }')
+    txtweet_count=$(wc -l $twtxtfile | awk '{ print $1 }')
+    echo -e "Building your timeline, this'll take a minute...\n"
+    if [ $follower_count -gt 0 ] || [ $txtweet_count -gt 0 ]; then
+        count="1"
+        while [ $count -le $follower_count ]; do
+            item=$(head -n${count} $follower_list | tail -n1)
+            this_nick=$(echo $item | cut -d, -f1)
+            feed_src=$(echo $item | cut -d, -f2)
+            curl -s -L -z ${CONF_DIR}/subscriptions/${this_nick} -o ${CONF_DIR}/subscriptions/${this_nick} ${feed_src}
+            count=$((count+1))
+        done
+        
+        for x in $CONF_DIR/subscriptions/*; do this_nick=$(basename $x);sed "s/\t/\t<$this_nick>:\ /" ${x};done | sed '/^[0-9]/!d' | sed '/>/!d' > $CONF_DIR/timeline.tmp
+        my_nick=$(echo $nick | sed 's/\ /_/g')
+        sed "s/\t/\t<$my_nick>:\ /" $twtxtfile >> $CONF_DIR/timeline.tmp
+        sort -r $CONF_DIR/timeline.tmp | head -n${timeline_count} > $CONF_DIR/timeline1.tmp
+        while read date nick message; do printf "$nick ";date -d `echo $date` +%c;echo -e "   $message\n";done < $CONF_DIR/timeline1.tmp
+        rm $CONF_DIR/timeline.tmp $CONF_DIR/timeline1.tmp
+        exit
+    else
+        echo "Nothing in your timeline."
+    fi
+}
+
+tweet() {
+    tweet="$1"
+    if [ -z "$tweet" ]; then
+        echo $usage && exit
+    else
+        timestamp=$( date -Im )
+        truncated_tweet=$(echo $tweet | cut -c1-${character_limit})
+        echo -e "$timestamp\t$truncated_tweet" >> $twtxtfile
+        echo "Tweet posted."
+        if [ -e $CONF_DIR/posthook ]; then
+            source $CONF_DIR/posthook
+            $(posthook)
+        fi
+    fi
+}
+
+
+unfollow() {
+    this_nick="$1"
+    if [ -z $this_nick ]; then
+        echo $usage && exit
+    else
+        follower_count=$(wc -l $follower_list | awk '{ print $1 }')
+
+        if [ $follower_count -gt 0 ]; then
+            new_list=$( sed "/$this_nick/d" $follower_list )
+            echo "$new_list" > $follower_list
+            echo "$this_nick removed from following."
+        else
+            echo "You aren't following anyone."
+        fi
+    fi
+}
+
+view() {
+    this_nick="$1"
+    if [ -z $this_nick ]; then
+        echo $usage && exit
+    else
+        follower_count=$(wc -l $follower_list | awk '{ print $1 }')
+        
+        if [ $follower_count -gt 0 ]; then
+            feed_src=$( sed -n "/$this_nick/p" $follower_list | cut -d, -f2 )
+            echo $feed_src
+        else
+            echo "You aren't following anyone."
+        fi
+    fi
+}
+
+if [ $# -eq 0 ]; then
+    timeline
+else 
+    while getopts "u:f:t:r:v:lh" Option
+    do
+        case $Option in
+            u ) this_nick=$OPTARG;;
+            f ) feed_src=$OPTARG;follow $this_nick $feed_src;;
+            l ) following;;
+            t ) tweet="$OPTARG";tweet "$tweet"; exit;;
+            r ) unfollow $OPTARG; exit;;
+            v ) view $OPTARG; exit;;
+            h ) echo "$usage"; exit;;
+           \? ) echo "$usage"; exit;;
+            * ) echo "$usage"; exit;;
+        esac
+    done
+    shift $(( OPTIND - 1 ))
+fi
