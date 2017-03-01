@@ -99,13 +99,13 @@ tweet() {
     if [ -z "$tweet" ]; then
         echo $usage && exit
     else
-        timestamp=$( date -Im )
+        timestamp=$( date -Is )
         truncated_tweet=$(echo $tweet | cut -c1-${character_limit})
         echo -e "$timestamp\t$truncated_tweet" >> $twtxtfile
         echo "Tweet posted."
         if [ -e $CONF_DIR/posthook ]; then
             source $CONF_DIR/posthook
-            $(posthook)
+            posthook
         fi
     fi
 }
