@@ -71,8 +71,9 @@ following() {
 timeline() {
     follower_count=$(wc -l $follower_list | awk '{ print $1 }')
     txtweet_count=$(wc -l $twtxtfile | awk '{ print $1 }')
-    echo -e "Building your timeline, this'll take a minute...\n"
+
     if [ $follower_count -gt 0 ] || [ $txtweet_count -gt 0 ]; then
+        echo -e "Building your timeline, this'll take a minute...\n"
         count="1"
         while [ $count -le $follower_count ]; do
             item=$(head -n${count} $follower_list | tail -n1)
@@ -105,7 +106,9 @@ tweet() {
         echo "Tweet posted."
         if [ -e $CONF_DIR/posthook ]; then
             source $CONF_DIR/posthook
+            echo "Starting posthook..."
             $(posthook)
+            echo "Posthook complete,"
         fi
     fi
 }
