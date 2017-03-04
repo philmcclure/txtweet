@@ -87,7 +87,7 @@ timeline() {
         my_nick=$(echo $nick | sed 's/\ /_/g')
         sed "s/\t/\t<$my_nick>:\ /" $twtxtfile >> $CONF_DIR/timeline.tmp
         sort -r $CONF_DIR/timeline.tmp | head -n${timeline_count} > $CONF_DIR/timeline1.tmp
-        while read date nick message; do printf "$nick ";date -d `echo $date` +%c;echo -e "   $message\n";done < $CONF_DIR/timeline1.tmp
+        while read date nick message; do printf "$nick ";date -d `echo $date` +%c;echo -e "   $message\n" | sed 's/\ http.*>/>/g';done < $CONF_DIR/timeline1.tmp
         rm $CONF_DIR/timeline.tmp $CONF_DIR/timeline1.tmp
         exit
     else
