@@ -44,6 +44,38 @@ $PROGNAME -v NICK             //show feed of user you're following
 EOG
 )
 
+relative_date() {
+    today=$( date +%s )
+    input_date="$1"
+    compare_date="$( date -d "$input_date" +%s )"
+    difference=$(( today - compare_date ))
+
+    if [ $today -lt $compare_date ]; then
+        echo "$( date -d "$input_date" "+%c" )"
+    elif [ $difference -ge 86400 ]; then
+        days=$(( difference / 86400 ))
+        if [ $days -eq 1 ]; then
+            echo "yesterday"
+        else
+            echo "$days days ago"
+        fi
+    elif [ $difference -ge 3600 ]; then
+        hours=$(( difference / 3600 ))
+        if [ $hours -eq 1 ]; then
+            echo "$hours hour ago"
+        else
+            echo "$hours hours ago"
+        fi
+    else
+        minutes=$(( difference / 60 ))
+        if [ $minutes -eq 1 ]; then
+            echo "$minutes minute ago"
+        else
+            echo "$minutes minutes ago"
+        fi
+    fi
+}
+
 follow() {
     this_nick="$1"
     feed_src="$2"
@@ -86,8 +118,8 @@ timeline() {
         for x in $CONF_DIR/subscriptions/*; do this_nick=$(basename $x);sed "s/\t/\t<$this_nick>:\ /" ${x};done | sed '/^[0-9]/!d' | sed '/>/!d' > $CONF_DIR/timeline.tmp
         my_nick=$(echo $nick | sed 's/\ /_/g')
         sed "s/\t/\t<$my_nick>:\ /" $twtxtfile >> $CONF_DIR/timeline.tmp
-        sort -r $CONF_DIR/timeline.tmp | head -n${timeline_count} > $CONF_DIR/timeline1.tmp
-        while read date nick message; do printf "$nick ";date -d `echo $date` +%c;echo -e "   $message\n" | sed 's/\ http.*>/>/g';done < $CONF_DIR/timeline1.tmp
+        sort -r $CONF_DIR/timeline.tmp | head -n${timeline_count} | sed 's/\ http.*>/>/g' | sed 's/`/"/g' > $CONF_DIR/timeline1.tmp
+        while read date nick message; do printf "$nick ";relative_date $date;echo -e "   $message\n";done < $CONF_DIR/timeline1.tmp
         rm $CONF_DIR/timeline.tmp $CONF_DIR/timeline1.tmp
         exit
     else
@@ -108,7 +140,7 @@ tweet() {
             source $CONF_DIR/posthook
             echo "Starting posthook..."
             $(posthook)
-            echo "Posthook complete,"
+            echo "Posthook complete."
         fi
     fi
 }
