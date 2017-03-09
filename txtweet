@@ -172,8 +172,10 @@ view() {
         follower_count=$(wc -l $follower_list | awk '{ print $1 }')
         
         if [ $follower_count -gt 0 ]; then
-            feed_src=$( sed -n "/$this_nick/p" $follower_list | cut -d, -f2 )
-            echo $feed_src
+            sed "s/\t/\t<$this_nick>:\ /" ${CONF_DIR}/subscriptions/${this_nick} | sed '/^[0-9]/!d' | sed '/>/!d' > $CONF_DIR/timeline.tmp
+            sort -r $CONF_DIR/timeline.tmp | head -n${timeline_count} | sed 's/\ http.*>/>/g' | sed 's/`/"/g' > $CONF_DIR/timeline1.tmp
+            while read date nick message; do printf "$nick ";relative_date $date;echo -e "   $message\n";done < $CONF_DIR/timeline1.tmp
+            rm $CONF_DIR/timeline.tmp $CONF_DIR/timeline1.tmp
         else
             echo "You aren't following anyone."
         fi
